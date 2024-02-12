@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Create IAMuser and IAMrole
+
+Parameters:
+  UserName:
+    Type: String
+    Default: "iam-user"
+  RoleName:
+    Type: String
+    Default: "admin-role"
+
+Resources:
+  # ------------------------------------------------------------#
+  #  IAM
+  # ------------------------------------------------------------#
+  IamUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /
+      LoginProfile:
+        # SSMパラメータストアを使用する際には余計なスペースはNG
+        Password: !Sub "{{resolve:ssm-secure:${UserName}-pass:1}}"
+        PasswordResetRequired: false
+      # ReadOnlyAccess
+      # ManagedPolicyArns:
+      #   - arn:aws:iam::aws:policy/ReadOnlyAccess
+      UserName: !Ref UserName
+
+  IamRole:
+    Type: AWS::IAM::Role
+    DependsOn: IamUser
+    Properties:
+      RoleName: !Sub "${RoleName}"
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:user/${UserName}"
+      # AdministratorAccess
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+Outputs:
+  LoginURL:
+    Description: IAMuserLoginURL
+    Value: !Sub "https://${AWS::AccountId}.signin.aws.amazon.com/console"
+  SwitchRoleURL:
+    Description: SwitchRoleURL
+    Value: !Sub "https://signin.aws.amazon.com/switchrole?roleName=skyroot-role&account=${AWS::AccountId}"
